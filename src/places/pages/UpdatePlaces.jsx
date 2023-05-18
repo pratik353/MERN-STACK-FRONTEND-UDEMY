@@ -1,16 +1,16 @@
-import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import React, { useContext, useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 
 import Button from "../../shared/components/FormElements/Button";
 import Input from "../../shared/components/FormElements/Input";
 import Card from "../../shared/components/UIElements/Card/Card";
 import { useForm } from "../../shared/hooks/form-hook";
-import {
-  VALIDATOR_MIN,
-  VALIDATOR_MINLENGTH,
-  VALIDATOR_REQUIRE,
-} from "../../shared/utils/validators";
+import { VALIDATOR_MIN, VALIDATOR_MINLENGTH, VALIDATOR_REQUIRE,} from "../../shared/utils/validators";
+import useHttpClient from "../../shared/hooks/http-hook";
+import ErrorModal from "../../shared/components/UIElements/loading/ErrorModal";
+import LoadingSpinner from "../../shared/components/UIElements/loading/LoadingSpinner";
 import "./PlaceForm.css";
+import { AuthContext } from "../../shared/context/auth-context";
 
 const DUMMY_PLACES = [
   {
@@ -44,8 +44,11 @@ const DUMMY_PLACES = [
 ];
 
 const UpdatePlaces = () => {
+  const navigate = useNavigate();
   const placeId = useParams().placeId;
-  const [isLoading, setIsLoading] = useState(true);
+  const auth = useContext(AuthContext);
+  const { error, isLoading, sendRequest, clearError} = useHttpClient();
+  const [loadedPlace, setLoadedPlace] = useState();
 
   const [formState, inputHandler, setFormData] = useForm(
     {
@@ -61,31 +64,71 @@ const UpdatePlaces = () => {
     false
   );
 
-  const identifiedPlace = DUMMY_PLACES.find((place) => place.id === placeId);
+  // const identifiedPlace = DUMMY_PLACES.find((place) => place.id === placeId);
+  // let identifiedPlace;
 
-  useEffect(()=>{
-    if(identifiedPlace){
-      setFormData({
-        title: {
-          value:identifiedPlace.title,
-          isValid: true,
-        },
-        description: {
-          value: identifiedPlace.description,
-          isValid: true,
-        },
-      }, true) 
-    }
+  useEffect(() => {
+    const getPlaceById = async () => {
+      try {
+        // const responseData = await sendRequest(`http://localhost:5000/api/places/${placeId}`);
+        const responseData = await sendRequest(`${process.env.REACT_APP_BACKEND_URL}/places/${placeId}`);
+        setLoadedPlace(responseData.place);
+        setFormData({
+          title: {
+            value:responseData.place.title,
+            isValid: true,
+          },
+          description: {
+            value: responseData.place.description,
+            isValid: true,
+          },
+        }, true) 
+      } catch (error) {
+        console.log(error);
+      };
+    };
+
+    getPlaceById();
+  },[sendRequest, placeId, setFormData])
+
+  // useEffect(()=>{
+  //   if(identifiedPlace){
+  //     setFormData({
+  //       title: {
+  //         value:identifiedPlace.title,
+  //         isValid: true,
+  //       },
+  //       description: {
+  //         value: identifiedPlace.description,
+  //         isValid: true,
+  //       },
+  //     }, true) 
+  //   }
    
-    setIsLoading(false); 
-  },[setFormData,identifiedPlace]);
+  //   // setIsLoading(false); 
+  // },[setFormData,identifiedPlace]);
 
-  const placeUpdateSubmitHandler = (event) => {
+  const placeUpdateSubmitHandler = async (event) => {
     event.preventDefault();
-    console.log(formState.inputs);
+    try {
+      // await sendRequest(`http://localhost:5000/api/places/${placeId}`, 
+      await sendRequest(`${process.env.REACT_APP_BACKEND_URL}/places/${placeId}`, 
+        'PATCH', 
+        JSON.stringify({
+         title: formState.inputs.title.value, 
+         description: formState.inputs.description.value,
+        }),
+        {
+          'Content-Type': 'application/json',
+          Authorization : auth.token
+        });
+        navigate(-1)
+    } catch (error) {
+      console.log(error);
+    }
   };
 
-  if (!identifiedPlace) {
+  if (!loadedPlace && !error) {
     return (
       <div className="center">
         <Card>
@@ -104,32 +147,36 @@ const UpdatePlaces = () => {
   }
 
   return (
-    <form className="place-form" onSubmit={placeUpdateSubmitHandler}>
-      <Input
-        id="title"
-        element="input"
-        type="text"
-        lable="Title"
-        validators={[VALIDATOR_REQUIRE()]}
-        errorText="Please enter valid title"
-        onInput={inputHandler}
-        initialValue={formState.inputs.title.value}
-        initialValid={formState.inputs.title.isValid}
-      />
-      <Input
-        id="description"
-        element="textarea"
-        lable="Description"
-        validators={[VALIDATOR_MINLENGTH(5)]}
-        errorText="Please enter valid description"
-        onInput={inputHandler}
-        initialValue={formState.inputs.description.value}
-        initialValid={formState.inputs.description.isValid}
-      />
-      <Button type="submit" disabled={!formState.isValid}>
-        UPDATE PLACE
-      </Button>
-    </form>
+    <>
+      <ErrorModal error={error} onClear={clearError} />
+      {isLoading && <LoadingSpinner asOverlay />}
+      <form className="place-form" onSubmit={placeUpdateSubmitHandler}>
+        <Input
+          id="title"
+          element="input"
+          type="text"
+          lable="Title"
+          validators={[VALIDATOR_REQUIRE()]}
+          errorText="Please enter valid title"
+          onInput={inputHandler}
+          initialValue={formState.inputs.title.value}
+          initialValid={formState.inputs.title.isValid}
+        />
+        <Input
+          id="description"
+          element="textarea"
+          lable="Description"
+          validators={[VALIDATOR_MINLENGTH(5)]}
+          errorText="Please enter valid description"
+          onInput={inputHandler}
+          initialValue={formState.inputs.description.value}
+          initialValid={formState.inputs.description.isValid}
+        />
+        <Button type="submit" disabled={!formState.isValid}>
+          UPDATE PLACE
+        </Button>
+      </form>
+    </>
   );
 };
 

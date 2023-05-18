@@ -9,7 +9,7 @@ const PlaceList = (props) => {
     return (
       <div className="place-list center">
         <Card>
-          <h2>No places fou nd. Maybe create one?</h2>
+          <h2>No places found. Maybe create one?</h2>
           <Button to='/places/new'>Share Place</Button>
         </Card>
       </div>
@@ -21,12 +21,13 @@ const PlaceList = (props) => {
         <PlaceItem
           key={place.id}
           id={place.id}
-          image={place.imageUrl}
+          image={place.image}
           title={place.title}
           description={place.description}
           address={place.address}
           creatorId={place.creator}
           coordinates={place.location}
+          onDelete={props.onDeletePlace}
         />
       ))}
     </ul>
